@@ -1,4 +1,4 @@
-This software is part of the [BioASQ Evaluation-Measures repository](https://github.com/BioASQ/Evaluation-Measures).
+This software is part of the BioASQ Evaluation-Measures repository: https://github.com/BioASQ/Evaluation-Measures
 
 
 Evaluation Measures for BioASQ Challenge
