@@ -1,1 +1,1 @@
-Download the data.tar.gz file and extract it here.
+Download the [data.tar.gz](https://archive.org/details/bioasq6_data.tar) file and extract it here.
