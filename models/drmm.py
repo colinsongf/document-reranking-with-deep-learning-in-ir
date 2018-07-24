@@ -1,4 +1,3 @@
-import random
 import pickle
 import dynet as dy
 import numpy as np
@@ -7,11 +6,9 @@ from gensim.models import KeyedVectors
 class DRMM:
 
 	def __init__(self):
-		random.seed(1234)
 
 		# Input hyperparameters
-		self.hist_size = 29
-		self.max_q_len = 30
+		self.hist_size = 30
 
 		# MLP hyperparameters
 		self.mlp_layers = 2
@@ -78,6 +75,7 @@ class DRMM:
 		gating_weights = idf_vec*self.w_g.expr()
 		drmm_score = dy.transpose(dy.concatenate(term_scores)) * dy.reshape(gating_weights, (len(q_idf), 1))
 		#doc_score = drmm_score
-		doc_score = dy.transpose(dy.concatenate([drmm_score, bm25_score, overlap_features])) * self.W_scores.expr() + self.b_scores
+		#doc_score = dy.transpose(dy.concatenate([drmm_score, overlap_features])) * self.W_scores.expr() + self.b_scores
+		doc_score = dy.transpose(dy.concatenate([drmm_score, bm25_score, overlap_features])) * self.W_scores.expr() + self.b_scores.expr()
 
 		return doc_score

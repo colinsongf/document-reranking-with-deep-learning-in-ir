@@ -1,8 +1,8 @@
 import os
 import json
 import pickle
-import argparse
 import datetime
+import argparse
 import subprocess
 
 import numpy as np
@@ -164,55 +164,56 @@ def rerank(data_file, filename, scoring_model, qrels, qrels_file):
     return reported_results
     
 if __name__ == '__main__':
+    
     train_pairs_file = 'data/bioasq.top100.train_pairs.30bins.pkl'
     dev_pairs_file = 'data/bioasq.top100.dev_pairs.30bins.pkl'
     dev_rerank_file = 'data/bioasq.top100.dev_rerank.30bins.pkl'
-
+    
     with open(train_pairs_file, 'rb') as f:
         train_data = pickle.load(f)
-
+    
     with open(dev_pairs_file, 'rb') as f:
         dev_data = pickle.load(f)
-
-
-
+    
+    
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('-config', dest='config_file')
     parser.add_argument('-out', dest='out_file')
     args = parser.parse_args()
-
+    
     print(args.config_file)
-
+    
     config_file = args.config_file
-
+    
     with open(config_file, 'r') as f:
         config = json.load(f)  
-
+    
     train_qrels = load_qrels(config['QRELS_TRAIN'])
     dev_qrels = load_qrels(config['QRELS_DEV'])
-
+    
     metrics = ['map']
-
+    
     drmm_model = DRMM()
-
+    
     train_batch_size = 32
     n_epochs = 100
     best_map = -1
-
+    
     res_dir = 'res/' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '_' + args.out_file
     print(res_dir)
     os.makedirs(os.path.join(os.getcwd(), res_dir))
-
+    
     log('epoch|dev_map|dev_gmap|dev_p_5|dev_acc|dev_loss|train_map|train_gmap|train_p_5|train_acc|train_loss', 'log.txt')
-
+    
     best_epoch = -1
     for epoch in range(1, n_epochs+1):
         print('\nEpoch: {0}/{1}'.format(epoch, n_epochs))
         sum_of_losses = 0.0
-
+    
         #Random shuffle training pairs
         train_data = shuffle_train_pairs(train_data)
-
+    
         train_batches = chunks(range(len(train_data['queries'])), train_batch_size)
         pbar = tqdm(total=len(train_data['queries']), mininterval=0, miniters=1, dynamic_ncols=True)
         hits = 0
@@ -231,9 +232,9 @@ if __name__ == '__main__':
                 neg_bm25 = train_data['neg_docs_normBM25'][i]
                 pos_overlap = train_data['pos_docs_overlap'][i]
                 neg_overlap = train_data['neg_docs_overlap'][i]
-
+    
                 #print(query_idf)
-
+    
                 preds = drmm_model.predict_pos_neg_scores(q_dpos_hist, q_dneg_hist, query_idf, pos_bm25, neg_bm25, pos_overlap, neg_overlap)
                 batch_preds.append(preds)
                 loss = dy.hinge(preds, 0)
@@ -247,7 +248,7 @@ if __name__ == '__main__':
             batch_loss.backward()
             drmm_model.trainer.update()
             pbar.update(train_batch_size)
-
+    
         logs['acc'] = hits / len(train_data['queries'])
         logs['loss'] = sum_of_losses / len(train_batches)
         
@@ -272,7 +273,7 @@ if __name__ == '__main__':
             p_v = p.value()
             if p_v[0] > p_v[1]:
                 hits += 1
-
+    
         
         logs['val_acc'] = hits / len(dev_data['queries'])
         logs['val_loss'] = sum_of_losses / len(dev_data['pos_docs'])
@@ -281,13 +282,13 @@ if __name__ == '__main__':
         print('Dev loss: {0}'.format(logs['val_loss']))
         print('Dev acc: {0}'.format(logs['val_acc']))
         pbar.close()
-
+    
         res = rerank(dev_rerank_file, 'dev_ranking_epoch{0}'.format(epoch), drmm_model, dev_qrels, config['QRELS_DEV'])
-
+    
         print('MAP*: {0}'.format(res['MAP(bioasq)']))
         print('GMAP: {0}'.format(res['GMAP(bioasq)']))
         log('|'.join(list(map(str, [epoch, res['MAP(bioasq)'], res['GMAP(bioasq)'], res['P_5'], logs['val_acc'], logs['val_loss'], 0, 0, 0, logs['acc'], logs['loss']]))), 'log.txt')
-
+    
         is_best_epoch = False
         if res['MAP(bioasq)'] > best_map:
             print('===== Best epoch so far =====')
@@ -296,19 +297,19 @@ if __name__ == '__main__':
             best_epoch = epoch
             drmm_model.dump_weights(res_dir)
             log('^^^', 'log.txt')
-
-
+    
+    
     drmm_model.load_weights(res_dir)
-
+    
     test_qrels_list = {}
     test_rerank_path_list = {}
     for i in range(1, 6):
         test_qrels_list[i] = 'data/BioASQ-task6bPhaseB-testset{0}'.format(i)
         test_rerank_path_list[i] = 'data/bioasq.top100.test_rerank.b{0}.30bins.pkl'.format(i)
-
+    
     for i in range(1, 6):
         res = rerank(test_rerank_path_list[i], 'test_ranking_batch{0}'.format(i), drmm_model, load_qrels(test_qrels_list[i]), test_qrels_list[i])
-
+    
         print('MAP*: {0}'.format(res['MAP(bioasq)']))
         print('GMAP: {0}'.format(res['GMAP(bioasq)']))
         log('batch|epoch|test_map|test_gmap|test_p_5', 'test_log.txt')
